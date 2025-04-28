@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Виртуальное окружение
+venv/
+ENV/
+env/
+
+# Файлы моделей (большие файлы)
+models/*.gguf
+models/*.bin
+models/*.onnx
+models/*.pt
+
+# Временные файлы
+temp/
+*.tmp
+*.temp
+
+# Медиа и данные
+*.wav
+*.mp3
+*.mp4
+*.ogg
+*.webm
+
+# Логи
+*.log
+logs/
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# Личные настройки
+.env
+config.local.py
+
+# Системные файлы
+.DS_Store
+Thumbs.db

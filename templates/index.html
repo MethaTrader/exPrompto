@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>exPrompto - Распознавание и структуризация текста</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <span class="logo-icon"><i class="fas fa-waveform-voice"></i></span>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" width="128" alt="">
+                <span class="logo-text">exPrompto</span>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="{{ url_for('index') }}" class="active">Главная</a></li>
+                    <li><a href="{{ url_for('models_page') }}">Модели</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Speech Recognition Section -->
+            <div class="card recorder-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-microphone"></i> Запись голоса</h2>
+                    <p>Запишите голосовое сообщение на русском языке (до 30 секунд)</p>
+                </div>
+
+                <div class="visualizer-container">
+                    <canvas id="visualizer"></canvas>
+                    <div class="time-indicator">
+                        <span id="currentTime">00:00</span>
+                        <span class="time-separator">/</span>
+                        <span id="maxTime">00:30</span>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="recordButton" class="record-btn">
+                        <i class="fas fa-microphone"></i>
+                        <span>Записать</span>
+                    </button>
+                </div>
+
+                <div class="progress-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+            </div>
+
+            <!-- Transcription Result Section -->
+            <div class="card result-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-file-alt"></i> Результат распознавания</h2>
+                    <div class="action-buttons">
+                        <button id="copyTranscriptButton" class="action-btn" title="Копировать текст" disabled>
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button id="processTextButton" class="action-btn accent" title="Структурировать текст" disabled>
+                            <i class="fas fa-magic"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="result-content">
+                    <div id="resultText" class="result-text">Здесь появится распознанный текст...</div>
+                </div>
+                <div id="statusMessage" class="status-message"></div>
+
+                <!-- Notifications -->
+                <div id="copyTranscriptNotification" class="copy-notification">
+                    <i class="fas fa-check"></i> Текст скопирован!
+                </div>
+            </div>
+
+            <!-- LLM Processing Modal -->
+            <div id="processingModal" class="modal">
+                <div class="modal-content">
+                    <h2><i class="fas fa-magic"></i> Структуризация текста</h2>
+                    <div class="template-selection">
+                        <label for="templateSelect">Выберите шаблон документа:</label>
+                        <select id="templateSelect">
+                            {% for template in templates %}
+                            <option value="{{ template.id }}">{{ template.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <p class="template-description" id="templateDescription"></p>
+                    <div class="processing-buttons">
+                        <button id="startProcessingButton" class="primary-btn">
+                            <i class="fas fa-play"></i> Начать обработку
+                        </button>
+                        <button id="cancelProcessingButton" class="secondary-btn">
+                            <i class="fas fa-times"></i> Отмена
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processing Status Modal -->
+            <div id="processingStatusModal" class="modal">
+                <div class="modal-content">
+                    <h2><i class="fas fa-cog fa-spin"></i> Обработка текста</h2>
+                    <div class="processing-status">
+                        <div class="progress-bar-container">
+                            <div id="processingProgressBar" class="progress-bar"></div>
+                        </div>
+                        <p id="processingStatusText">Инициализация обработки...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Structured Document Result Section -->
+            <div class="card structured-document-card" id="structuredDocumentCard" style="display: none;">
+                <div class="card-header">
+                    <h2><i class="fas fa-file-contract"></i> Структурированный документ</h2>
+                    <div class="action-buttons">
+                        <button id="copyDocumentButton" class="action-btn" title="Копировать текст">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button id="exportPdfButton" class="action-btn" title="Экспорт в PDF">
+                            <i class="fas fa-file-pdf"></i>
+                        </button>
+                        <button id="exportTxtButton" class="action-btn" title="Экспорт в TXT">
+                            <i class="fas fa-file-lines"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="document-content">
+                    <div id="structuredDocumentText" class="document-text"></div>
+                </div>
+
+                <!-- Notifications -->
+                <div id="copyDocumentNotification" class="copy-notification">
+                    <i class="fas fa-check"></i> Документ скопирован!
+                </div>
+                <div id="pdfNotification" class="copy-notification">
+                    <i class="fas fa-check"></i> PDF файл создан!
+                </div>
+                <div id="txtNotification" class="copy-notification">
+                    <i class="fas fa-check"></i> TXT файл создан!
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 exPrompto - Технологии распознавания и структуризации текста</p>
+        </footer>
+    </div>
+
+    <!-- Модульные скрипты -->
+    <script src="{{ url_for('static', filename='js/audioVisualizer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/audioRecorder.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/clipboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/documentProcessor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

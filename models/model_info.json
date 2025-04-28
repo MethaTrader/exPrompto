@@ -1,0 +1,12 @@
+{
+  "models": {
+    "llama-2-7b-chat.Q2_K.gguf": {
+      "repo": "TheBloke/Llama-2-7B-Chat-GGUF",
+      "path": "/home/potion/eVoice/models/llama-2-7b-chat.Q2_K.gguf",
+      "size_mb": 2695.03,
+      "md5": "7a3f13500b2bf325fe19e1c8542b5296",
+      "date_added": 1745853661.3275063,
+      "description": "2-bit quantized version, smallest size, lowest quality"
+    }
+  }
+}
