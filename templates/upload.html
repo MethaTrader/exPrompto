@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>exPrompto - Загрузка аудио файлов</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <span class="logo-icon"><i class="fas fa-waveform-voice"></i></span>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" width="128" alt="">
+                <span class="logo-text">exPrompto</span>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Запись голоса</a></li>
+                    <li><a href="{{ url_for('upload_page') }}" class="active">Загрузка аудио</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <!-- File Upload Section -->
+            <div class="card uploader-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-file-audio"></i> Загрузка медиа файла</h2>
+                    <p>Загрузите аудио или видео файл для распознавания текста</p>
+                </div>
+
+                <div class="upload-container">
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <p>Перетащите аудио или видео файл сюда или нажмите для выбора</p>
+                        <p class="upload-formats">Поддерживаемые форматы: MP3, WAV, M4A, OGG, AAC, MP4, MOV, MKV, AVI, WEBM</p>
+                        <input type="file" id="audioFileInput" accept="audio/*,video/*" class="file-input" />
+                    </div>
+                    <div class="file-info" id="fileInfo" style="display: none;">
+                        <div class="file-details">
+                            <i class="fas fa-file-audio file-icon"></i>
+                            <div class="file-metadata">
+                                <p class="file-name" id="fileName">filename.mp3</p>
+                                <p class="file-size" id="fileSize">0 MB</p>
+                            </div>
+                        </div>
+                        <div class="language-selector">
+                            <label for="languageSelect">Язык аудио:</label>
+                            <select id="languageSelect">
+                                <option value="auto">Автоопределение</option>
+                                <option value="ru">Русский</option>
+                                <option value="uk">Украинский</option>
+                            </select>
+                        </div>
+                        <button class="upload-btn" id="uploadButton">
+                            <i class="fas fa-upload"></i> Распознать текст
+                        </button>
+                    </div>
+                </div>
+
+                <div class="progress-container" id="progressContainer" style="display: none;">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+            </div>
+
+            <!-- Transcription Result Section -->
+            <div class="card result-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-file-alt"></i> Результат распознавания</h2>
+                    <div class="action-buttons">
+                        <button id="copyTranscriptButton" class="action-btn" title="Копировать текст" disabled>
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="result-content">
+                    <div id="resultText" class="result-text">Здесь появится распознанный текст...</div>
+                </div>
+                <div id="statusMessage" class="status-message"></div>
+
+                <!-- Notifications -->
+                <div id="copyTranscriptNotification" class="copy-notification">
+                    <i class="fas fa-check"></i> Текст скопирован!
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 exPrompto - Технологии распознавания текста</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/clipboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/fileUploader.js') }}"></script>
+</body>
+</html>

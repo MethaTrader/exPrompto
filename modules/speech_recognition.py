@@ -2,6 +2,7 @@ import os
 import tempfile
 import whisper
 import logging
+import shutil
 
 # Настройка логирования
 logging.basicConfig(
@@ -48,13 +49,13 @@ def get_whisper_model(model_size="base"):
         raise
 
 
-def recognize_speech(audio_file, language="ru", model_size="base"):
+def recognize_speech(audio_input, language=None, model_size="base"):
     """
     Распознает речь из аудиофайла.
 
     Args:
-        audio_file: Объект файла Flask из request.files['audio']
-        language (str): Язык для распознавания
+        audio_input: Объект файла Flask, путь к файлу или объект file-like
+        language (str, optional): Язык для распознавания ('ru', 'uk', или None для автоопределения)
         model_size (str): Размер модели Whisper
 
     Returns:
@@ -69,16 +70,37 @@ def recognize_speech(audio_file, language="ru", model_size="base"):
     # Сохраняем временный файл
     try:
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
-            audio_file.save(temp_audio.name)
             temp_audio_path = temp_audio.name
 
-        logger.info(f"Аудиофайл временно сохранен: {temp_audio_path}")
+            # Handle different types of input
+            if hasattr(audio_input, 'save'):  # Flask FileStorage object
+                audio_input.save(temp_audio_path)
+                logger.info(f"Flask FileStorage сохранен: {temp_audio_path}")
+            elif hasattr(audio_input, 'read'):  # File-like object (e.g., open file or BytesIO)
+                # Copy the file content
+                with open(temp_audio_path, 'wb') as f:
+                    shutil.copyfileobj(audio_input, f)
+                logger.info(f"File-like объект скопирован: {temp_audio_path}")
+            elif isinstance(audio_input, str):  # File path
+                shutil.copy(audio_input, temp_audio_path)
+                logger.info(f"Файл скопирован: {audio_input} -> {temp_audio_path}")
+            else:
+                raise TypeError(f"Неподдерживаемый тип аудио-входа: {type(audio_input)}")
 
         # Распознаем речь с помощью Whisper
-        logger.info("Начало распознавания речи...")
-        result = model.transcribe(temp_audio_path, language=language)
+        logger.info(f"Начало распознавания речи{' на языке: ' + language if language else ' с автоопределением языка'}...")
+
+        # If language is specified, use it, otherwise let Whisper auto-detect
+        if language:
+            result = model.transcribe(temp_audio_path, language=language)
+            detected_language = language
+        else:
+            # Auto-detect language
+            result = model.transcribe(temp_audio_path)
+            detected_language = result.get("language", "unknown")
+
         transcription = result["text"]
-        logger.info("Распознавание речи завершено успешно")
+        logger.info(f"Распознавание речи завершено успешно, обнаруженный язык: {detected_language}")
 
         # Удаляем временный файл
         os.unlink(temp_audio_path)
