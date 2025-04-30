@@ -13,6 +13,9 @@ class AudioRecorder {
      * @param {HTMLElement} config.resultText - Элемент для отображения результата распознавания
      * @param {HTMLElement} config.statusMessage - Элемент для отображения статусных сообщений
      * @param {HTMLElement} config.copyButton - Кнопка копирования текста
+     * @param {HTMLElement} config.promptText - Элемент для отображения сгенерированного промпта
+     * @param {HTMLElement} config.promptStatusMessage - Элемент для отображения статусных сообщений промпта
+     * @param {HTMLElement} config.copyPromptButton - Кнопка копирования промпта
      * @param {AudioVisualizer} config.audioVisualizerInstance - Экземпляр визуализатора аудио
      * @param {Notifications} config.notificationsInstance - Экземпляр менеджера уведомлений
      * @param {number} config.maxRecordingTime - Максимальное время записи в миллисекундах
@@ -24,6 +27,9 @@ class AudioRecorder {
         this.resultText = config.resultText;
         this.statusMessage = config.statusMessage;
         this.copyButton = config.copyButton || null;
+        this.promptText = config.promptText || null;
+        this.promptStatusMessage = config.promptStatusMessage || null;
+        this.copyPromptButton = config.copyPromptButton || null;
         this.audioVisualizer = config.audioVisualizerInstance;
         this.notifications = config.notificationsInstance;
         this.maxRecordingTime = config.maxRecordingTime;
@@ -81,6 +87,17 @@ class AudioRecorder {
 
         // Показываем сообщение о статусе
         this.statusMessage.textContent = 'Инициализация микрофона...';
+
+        // Сбрасываем предыдущие результаты
+        if (this.promptText) {
+            this.promptText.textContent = 'Здесь появится сгенерированный промпт...';
+        }
+        if (this.promptStatusMessage) {
+            this.promptStatusMessage.textContent = '';
+        }
+        if (this.copyPromptButton) {
+            this.copyPromptButton.disabled = true;
+        }
 
         try {
             // Запрашиваем доступ к микрофону
@@ -187,13 +204,43 @@ class AudioRecorder {
             if (data.error) {
                 this.resultText.textContent = `Ошибка: ${data.error}`;
                 this.statusMessage.textContent = 'Произошла ошибка при распознавании';
+
+                if (this.promptText) {
+                    this.promptText.textContent = 'Не удалось сгенерировать промпт из-за ошибки распознавания';
+                }
+                if (this.promptStatusMessage) {
+                    this.promptStatusMessage.textContent = 'Ошибка распознавания речи';
+                }
             } else {
+                // Обновляем UI с распознанным текстом
                 this.resultText.textContent = data.transcription || 'Текст не распознан';
                 this.statusMessage.textContent = 'Распознавание завершено успешно!';
 
                 // Активируем кнопку копирования, если есть текст
                 if (data.transcription && data.transcription.trim() !== '' && this.copyButton) {
                     this.copyButton.disabled = false;
+                }
+
+                // Отображаем сгенерированный промпт
+                if (this.promptText) {
+                    if (data.prompt) {
+                        this.promptText.textContent = data.prompt;
+                        this.promptStatusMessage.textContent = 'Промпт сгенерирован успешно!';
+
+                        // Активируем кнопку копирования промпта
+                        if (this.copyPromptButton) {
+                            this.copyPromptButton.disabled = false;
+                        }
+
+                        // Добавляем эффект успешного завершения
+                        this.promptText.style.animation = 'highlight 1s';
+                        setTimeout(() => {
+                            this.promptText.style.animation = '';
+                        }, 1000);
+                    } else if (data.prompt_error) {
+                        this.promptText.textContent = 'Не удалось сгенерировать промпт';
+                        this.promptStatusMessage.textContent = `Ошибка: ${data.prompt_error}`;
+                    }
                 }
 
                 // Добавляем эффект успешного завершения
@@ -207,6 +254,11 @@ class AudioRecorder {
             this.resultText.textContent = 'Произошла ошибка при отправке аудио';
             this.statusMessage.textContent = `Ошибка: ${error.message}`;
             console.error('Ошибка при отправке аудио:', error);
+
+            if (this.promptText) {
+                this.promptText.textContent = 'Не удалось сгенерировать промпт из-за ошибки сети';
+                this.promptStatusMessage.textContent = 'Ошибка сети';
+            }
         });
     }
 }

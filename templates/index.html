@@ -17,8 +17,7 @@
             </div>
             <nav class="main-nav">
                 <ul>
-                    <li><a href="{{ url_for('index') }}" class="active">Запись голоса</a></li>
-                    <li><a href="{{ url_for('upload_page') }}">Загрузка медиа</a></li>
+                    <li><a href="{{ url_for('index') }}" class="active">Главная</a></li>
                 </ul>
             </nav>
         </header>
@@ -70,6 +69,27 @@
                 <!-- Notifications -->
                 <div id="copyTranscriptNotification" class="copy-notification">
                     <i class="fas fa-check"></i> Текст скопирован!
+                </div>
+            </div>
+
+            <!-- Generated Prompt Section -->
+            <div class="card structured-document-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-magic"></i> Сгенерированный промпт</h2>
+                    <div class="action-buttons">
+                        <button id="copyPromptButton" class="action-btn" title="Копировать промпт" disabled>
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="document-content">
+                    <div id="promptText" class="document-text">Здесь появится сгенерированный промпт...</div>
+                </div>
+                <div id="promptStatusMessage" class="status-message"></div>
+
+                <!-- Notifications -->
+                <div id="copyPromptNotification" class="copy-notification">
+                    <i class="fas fa-check"></i> Промпт скопирован!
                 </div>
             </div>
         </main>

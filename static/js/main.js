@@ -15,8 +15,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusMessage = document.getElementById('statusMessage');
     const copyTranscriptButton = document.getElementById('copyTranscriptButton');
 
+    // UI Elements - Prompt Generation
+    const promptText = document.getElementById('promptText');
+    const promptStatusMessage = document.getElementById('promptStatusMessage');
+    const copyPromptButton = document.getElementById('copyPromptButton');
+
     // UI Elements - Notifications
     const copyTranscriptNotification = document.getElementById('copyTranscriptNotification');
+    const copyPromptNotification = document.getElementById('copyPromptNotification');
 
     // Validate UI elements
     const validateElements = () => {
@@ -27,7 +33,10 @@ document.addEventListener('DOMContentLoaded', function() {
             'currentTimeElement': currentTimeElement,
             'resultText': resultText,
             'statusMessage': statusMessage,
-            'copyTranscriptButton': copyTranscriptButton
+            'copyTranscriptButton': copyTranscriptButton,
+            'promptText': promptText,
+            'promptStatusMessage': promptStatusMessage,
+            'copyPromptButton': copyPromptButton
         };
 
         let missing = [];
@@ -64,7 +73,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize notifications
     console.log('Initializing notifications...');
     const notificationsInstance = new Notifications({
-        copyNotification: copyTranscriptNotification
+        copyNotification: copyTranscriptNotification,
+        pdfNotification: copyPromptNotification,
+        txtNotification: null
     });
 
     // Initialize clipboard manager for transcription results
@@ -76,6 +87,15 @@ document.addEventListener('DOMContentLoaded', function() {
         statusMessage: statusMessage
     });
 
+    // Initialize clipboard manager for prompt
+    console.log('Initializing prompt clipboard manager...');
+    const clipboardPromptInstance = new ClipboardManager({
+        copyButton: copyPromptButton,
+        resultText: promptText,
+        notificationsInstance: notificationsInstance,
+        statusMessage: promptStatusMessage
+    });
+
     // Initialize audio recorder
     console.log('Initializing audio recorder...');
     const audioRecorderInstance = new AudioRecorder({
@@ -85,6 +105,9 @@ document.addEventListener('DOMContentLoaded', function() {
         resultText: resultText,
         statusMessage: statusMessage,
         copyButton: copyTranscriptButton,
+        promptText: promptText,
+        promptStatusMessage: promptStatusMessage,
+        copyPromptButton: copyPromptButton,
         audioVisualizerInstance: audioVisualizerInstance,
         notificationsInstance: notificationsInstance,
         maxRecordingTime: MAX_RECORDING_TIME
@@ -104,10 +127,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Event Listeners - Copying
+    // Event Listeners - Copying Transcription
     copyTranscriptButton.addEventListener('click', () => {
         console.log('Copy transcript button clicked');
         clipboardTranscriptInstance.copyToClipboard();
+    });
+
+    // Event Listeners - Copying Prompt
+    copyPromptButton.addEventListener('click', () => {
+        console.log('Copy prompt button clicked');
+        clipboardPromptInstance.copyToClipboard();
     });
 
     // Handle window resize
