@@ -13,9 +13,6 @@ class AudioRecorder {
      * @param {HTMLElement} config.resultText - Элемент для отображения результата распознавания
      * @param {HTMLElement} config.statusMessage - Элемент для отображения статусных сообщений
      * @param {HTMLElement} config.copyButton - Кнопка копирования текста
-     * @param {HTMLElement} config.processButton - Кнопка обработки текста
-     * @param {HTMLElement} config.exportPdfButton - Кнопка экспорта в PDF
-     * @param {HTMLElement} config.exportTxtButton - Кнопка экспорта в TXT
      * @param {AudioVisualizer} config.audioVisualizerInstance - Экземпляр визуализатора аудио
      * @param {Notifications} config.notificationsInstance - Экземпляр менеджера уведомлений
      * @param {number} config.maxRecordingTime - Максимальное время записи в миллисекундах
@@ -27,9 +24,6 @@ class AudioRecorder {
         this.resultText = config.resultText;
         this.statusMessage = config.statusMessage;
         this.copyButton = config.copyButton || null;
-        this.processButton = config.processButton || null; // Added proper initialization for processButton
-        this.exportPdfButton = config.exportPdfButton || null;
-        this.exportTxtButton = config.exportTxtButton || null;
         this.audioVisualizer = config.audioVisualizerInstance;
         this.notifications = config.notificationsInstance;
         this.maxRecordingTime = config.maxRecordingTime;
@@ -100,15 +94,6 @@ class AudioRecorder {
             // Деактивируем кнопки экспорта
             if (this.copyButton) {
                 this.copyButton.disabled = true;
-            }
-            if (this.processButton) {
-                this.processButton.disabled = true;
-            }
-            if (this.exportPdfButton) {
-                this.exportPdfButton.disabled = true;
-            }
-            if (this.exportTxtButton) {
-                this.exportTxtButton.disabled = true;
             }
 
             // Запускаем таймер
@@ -202,25 +187,13 @@ class AudioRecorder {
             if (data.error) {
                 this.resultText.textContent = `Ошибка: ${data.error}`;
                 this.statusMessage.textContent = 'Произошла ошибка при распознавании';
-                // Не активируем кнопки экспорта при ошибке
             } else {
                 this.resultText.textContent = data.transcription || 'Текст не распознан';
                 this.statusMessage.textContent = 'Распознавание завершено успешно!';
 
-                // Активируем кнопки экспорта, если есть текст
-                if (data.transcription && data.transcription.trim() !== '') {
-                    if (this.copyButton) {
-                        this.copyButton.disabled = false;
-                    }
-                    if (this.processButton) {
-                        this.processButton.disabled = false;
-                    }
-                    if (this.exportPdfButton) {
-                        this.exportPdfButton.disabled = false;
-                    }
-                    if (this.exportTxtButton) {
-                        this.exportTxtButton.disabled = false;
-                    }
+                // Активируем кнопку копирования, если есть текст
+                if (data.transcription && data.transcription.trim() !== '' && this.copyButton) {
+                    this.copyButton.disabled = false;
                 }
 
                 // Добавляем эффект успешного завершения
