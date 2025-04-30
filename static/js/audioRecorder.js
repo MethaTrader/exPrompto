@@ -13,6 +13,7 @@ class AudioRecorder {
      * @param {HTMLElement} config.resultText - Элемент для отображения результата распознавания
      * @param {HTMLElement} config.statusMessage - Элемент для отображения статусных сообщений
      * @param {HTMLElement} config.copyButton - Кнопка копирования текста
+     * @param {HTMLElement} config.processButton - Кнопка обработки текста
      * @param {HTMLElement} config.exportPdfButton - Кнопка экспорта в PDF
      * @param {HTMLElement} config.exportTxtButton - Кнопка экспорта в TXT
      * @param {AudioVisualizer} config.audioVisualizerInstance - Экземпляр визуализатора аудио
@@ -25,13 +26,13 @@ class AudioRecorder {
         this.currentTimeElement = config.currentTimeElement;
         this.resultText = config.resultText;
         this.statusMessage = config.statusMessage;
-        this.copyButton = config.copyButton || null;  // Use null default here
-        this.exportPdfButton = config.exportPdfButton || null;  // Add null defaults
-        this.exportTxtButton = config.exportTxtButton || null;  // Add null defaults
+        this.copyButton = config.copyButton || null;
+        this.processButton = config.processButton || null; // Added proper initialization for processButton
+        this.exportPdfButton = config.exportPdfButton || null;
+        this.exportTxtButton = config.exportTxtButton || null;
         this.audioVisualizer = config.audioVisualizerInstance;
         this.notifications = config.notificationsInstance;
         this.maxRecordingTime = config.maxRecordingTime;
-
 
         // Переменные для записи
         this.mediaRecorder = null;
@@ -100,13 +101,15 @@ class AudioRecorder {
             if (this.copyButton) {
                 this.copyButton.disabled = true;
             }
+            if (this.processButton) {
+                this.processButton.disabled = true;
+            }
             if (this.exportPdfButton) {
                 this.exportPdfButton.disabled = true;
             }
             if (this.exportTxtButton) {
                 this.exportTxtButton.disabled = true;
             }
-
 
             // Запускаем таймер
             this.startTime = Date.now();
@@ -205,20 +208,20 @@ class AudioRecorder {
                 this.statusMessage.textContent = 'Распознавание завершено успешно!';
 
                 // Активируем кнопки экспорта, если есть текст
-                        if (data.transcription && data.transcription.trim() !== '') {
-            if (this.copyButton) {
-                this.copyButton.disabled = false;
-            }
-            if (this.processButton) {
-                this.processButton.disabled = false;
-            }
-            if (this.exportPdfButton) {
-                this.exportPdfButton.disabled = false;
-            }
-            if (this.exportTxtButton) {
-                this.exportTxtButton.disabled = false;
-            }
-        }
+                if (data.transcription && data.transcription.trim() !== '') {
+                    if (this.copyButton) {
+                        this.copyButton.disabled = false;
+                    }
+                    if (this.processButton) {
+                        this.processButton.disabled = false;
+                    }
+                    if (this.exportPdfButton) {
+                        this.exportPdfButton.disabled = false;
+                    }
+                    if (this.exportTxtButton) {
+                        this.exportTxtButton.disabled = false;
+                    }
+                }
 
                 // Добавляем эффект успешного завершения
                 this.resultText.style.animation = 'highlight 1s';

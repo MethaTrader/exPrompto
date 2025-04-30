@@ -40,6 +40,9 @@ class DocumentProcessor {
         this.currentJobId = null;
         this.pollingInterval = null;
         this.templateDescriptions = {};
+        this.pollingCount = 0;
+        this.maxPollingAttempts = 120; // 2 minutes at 1 second intervals
+        this.pollingDelay = 1000; // 1 second between polls
 
         // Initialize
         this.setupEventListeners();
@@ -51,9 +54,15 @@ class DocumentProcessor {
      */
     setupEventListeners() {
         // Process text button
-        this.processTextButton.addEventListener('click', () => {
-            this.openProcessingModal();
-        });
+        if (this.processTextButton) {
+            console.log('Setting up event listener for process text button');
+            this.processTextButton.addEventListener('click', () => {
+                console.log('Process text button clicked');
+                this.openProcessingModal();
+            });
+        } else {
+            console.error('Process text button not found');
+        }
 
         // Template selection change
         if (this.templateSelect) {
@@ -78,8 +87,14 @@ class DocumentProcessor {
      */
     loadTemplateDescriptions() {
         fetch('/api/templates')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch templates: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Templates loaded:', data);
                 const templates = data.templates || [];
                 templates.forEach(template => {
                     this.templateDescriptions[template.id] = template.description;
@@ -106,8 +121,12 @@ class DocumentProcessor {
      * Open the processing modal
      */
     openProcessingModal() {
-        if (!this.hasValidText()) return;
+        if (!this.hasValidText()) {
+            console.warn('No valid text to process');
+            return;
+        }
 
+        console.log('Opening processing modal');
         this.processingModal.style.display = 'flex';
         this.updateTemplateDescription();
     }
@@ -141,7 +160,14 @@ class DocumentProcessor {
      * @returns {boolean} True if there is valid text to process
      */
     hasValidText() {
+        if (!this.resultText) {
+            console.error('Result text element not found');
+            return false;
+        }
+
         const text = this.resultText.textContent.trim();
+        console.log('Checking if text is valid:', text ? 'Text is present' : 'No text');
+
         return text &&
                text !== 'Здесь появится распознанный текст...' &&
                !text.startsWith('Ошибка:') &&
@@ -153,10 +179,18 @@ class DocumentProcessor {
      * Start processing the text
      */
     startProcessing() {
-        if (!this.hasValidText()) return;
+        if (!this.hasValidText()) {
+            console.warn('No valid text to process');
+            return;
+        }
 
         const text = this.resultText.textContent.trim();
         const templateType = this.templateSelect ? this.templateSelect.value : 'technical_specification';
+
+        console.log(`Starting text processing with template: ${templateType}`);
+
+        // Reset polling count
+        this.pollingCount = 0;
 
         // Close the processing modal and open the status modal
         this.closeProcessingModal();
@@ -173,9 +207,15 @@ class DocumentProcessor {
                 template_type: templateType
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success && data.job_id) {
+                console.log(`Processing job started with ID: ${data.job_id}`);
                 this.currentJobId = data.job_id;
                 this.startPollingJobStatus();
             } else {
@@ -183,6 +223,7 @@ class DocumentProcessor {
             }
         })
         .catch(error => {
+            console.error('Error starting text processing:', error);
             this.processingStatusText.textContent = `Ошибка: ${error.message}`;
             setTimeout(() => {
                 this.closeProcessingStatusModal();
@@ -194,21 +235,25 @@ class DocumentProcessor {
      * Start polling for job status
      */
     startPollingJobStatus() {
-        if (!this.currentJobId) return;
+        if (!this.currentJobId) {
+            console.error('No job ID to poll');
+            return;
+        }
 
         // Set initial progress
         this.processingProgressBar.style.width = '10%';
         this.processingStatusText.textContent = 'Обработка текста...';
 
         let progress = 10;
-        let pollingCount = 0;
 
         // Clear any existing interval
         this.clearPolling();
 
-        // Set up polling interval
-        this.pollingInterval = setInterval(() => {
-            pollingCount++;
+        console.log(`Starting polling for job: ${this.currentJobId}`);
+
+        // Define a function to check the job status
+        const checkJobStatus = () => {
+            this.pollingCount++;
 
             // Increment artificial progress (up to 90%)
             // Real completion will set it to 100%
@@ -218,17 +263,29 @@ class DocumentProcessor {
                 this.processingProgressBar.style.width = `${progress}%`;
             }
 
+            // Log polling attempt
+            console.log(`Polling attempt ${this.pollingCount} for job: ${this.currentJobId}`);
+
             // Check job status
             fetch(`/job-status/${this.currentJobId}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log(`Job status: ${data.status}`, data);
+
                     if (data.status === 'completed') {
                         // Job completed successfully
                         this.processingProgressBar.style.width = '100%';
                         this.processingStatusText.textContent = 'Обработка завершена!';
 
                         // Clear polling and display results
-                        this.clearPolling();
+                        clearTimeout(this.pollingTimeout);
+                        this.pollingTimeout = null;
+
                         setTimeout(() => {
                             this.closeProcessingStatusModal();
                             this.displayProcessedDocument(data.result.text);
@@ -236,55 +293,96 @@ class DocumentProcessor {
                     } else if (data.status === 'failed') {
                         // Job failed
                         this.processingStatusText.textContent = `Ошибка: ${data.result?.error || 'Обработка не удалась'}`;
-                        this.clearPolling();
+                        clearTimeout(this.pollingTimeout);
+                        this.pollingTimeout = null;
 
                         // Close modal after a delay
                         setTimeout(() => {
                             this.closeProcessingStatusModal();
                         }, 3000);
                     } else if (data.status === 'not_found') {
-                        // Job not found
-                        this.processingStatusText.textContent = 'Задача не найдена';
-                        this.clearPolling();
+                        // First few attempts might return not_found while the job is being created
+                        if (this.pollingCount < 5) {
+                            console.log(`Job not found yet, retry ${this.pollingCount}/5`);
+                            this.pollingTimeout = setTimeout(checkJobStatus, this.pollingDelay);
+                        } else {
+                            // Job not found after several attempts
+                            this.processingStatusText.textContent = 'Задача не найдена';
+                            clearTimeout(this.pollingTimeout);
+                            this.pollingTimeout = null;
 
-                        // Close modal after a delay
-                        setTimeout(() => {
-                            this.closeProcessingStatusModal();
-                        }, 3000);
-                    }
+                            // Close modal after a delay
+                            setTimeout(() => {
+                                this.closeProcessingStatusModal();
+                            }, 3000);
+                        }
+                    } else if (data.status === 'processing' || data.status === 'queued') {
+                        // Job is still being processed, continue polling
+                        this.processingStatusText.textContent = data.status === 'processing' ?
+                            'Обработка текста...' : 'В очереди на обработку...';
 
-                    // If polling has gone on too long, assume something went wrong
-                    if (pollingCount > 60) { // 60 * 2 seconds = 2 minutes
-                        this.processingStatusText.textContent = 'Превышено время ожидания';
-                        this.clearPolling();
+                        // Continue polling
+                        if (this.pollingCount < this.maxPollingAttempts) {
+                            this.pollingTimeout = setTimeout(checkJobStatus, this.pollingDelay);
+                        } else {
+                            // Exceeded max attempts
+                            this.processingStatusText.textContent = 'Превышено время ожидания';
+                            clearTimeout(this.pollingTimeout);
+                            this.pollingTimeout = null;
 
-                        setTimeout(() => {
-                            this.closeProcessingStatusModal();
-                        }, 3000);
+                            setTimeout(() => {
+                                this.closeProcessingStatusModal();
+                            }, 3000);
+                        }
+                    } else {
+                        // Unknown status
+                        console.warn(`Unknown job status: ${data.status}`);
+
+                        // Continue polling for a while
+                        if (this.pollingCount < this.maxPollingAttempts) {
+                            this.pollingTimeout = setTimeout(checkJobStatus, this.pollingDelay);
+                        } else {
+                            // Exceeded max attempts
+                            this.processingStatusText.textContent = 'Превышено время ожидания';
+                            clearTimeout(this.pollingTimeout);
+                            this.pollingTimeout = null;
+
+                            setTimeout(() => {
+                                this.closeProcessingStatusModal();
+                            }, 3000);
+                        }
                     }
                 })
                 .catch(error => {
                     console.error('Error checking job status:', error);
                     this.processingStatusText.textContent = `Ошибка: ${error.message}`;
 
-                    // Don't clear polling immediately, try again unless it's been too long
-                    if (pollingCount > 10) {
-                        this.clearPolling();
+                    // Continue polling for a few more attempts if there's a network error
+                    if (this.pollingCount < 10) {
+                        this.pollingTimeout = setTimeout(checkJobStatus, this.pollingDelay);
+                    } else {
+                        clearTimeout(this.pollingTimeout);
+                        this.pollingTimeout = null;
+
                         setTimeout(() => {
                             this.closeProcessingStatusModal();
                         }, 3000);
                     }
                 });
-        }, 2000); // Poll every 2 seconds
+        };
+
+        // Start the first check
+        checkJobStatus();
     }
 
     /**
      * Clear polling interval
      */
     clearPolling() {
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
+        if (this.pollingTimeout) {
+            clearTimeout(this.pollingTimeout);
+            this.pollingTimeout = null;
+            console.log('Polling timeout cleared');
         }
     }
 
@@ -293,7 +391,12 @@ class DocumentProcessor {
      * @param {string} text - Processed document text
      */
     displayProcessedDocument(text) {
-        if (!text) return;
+        if (!text) {
+            console.warn('No text to display');
+            return;
+        }
+
+        console.log('Displaying processed document');
 
         // Show the structured document card
         this.structuredDocumentCard.style.display = 'block';

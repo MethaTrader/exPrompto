@@ -19,7 +19,11 @@ from llama_cpp import Llama
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("llm_processor.log"),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -35,7 +39,7 @@ MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 # Default model configuration
 DEFAULT_MODEL_CONFIG = {
-    "model_path": os.path.join(MODEL_DIR, "llama-2-7b-chat.Q4_K_M.gguf"),
+    "model_path": os.path.join(MODEL_DIR, "llama-2-7b-chat.Q2_K.gguf"),  # Using the smaller model
     "n_ctx": 4096,  # Context window size
     "n_batch": 512,  # Batch size for prompt processing
     "n_gpu_layers": -1,  # -1 means use all available GPU layers
@@ -179,7 +183,7 @@ def get_llm_instance():
 
 
 def process_text(text: str, template_type: str = "technical_specification",
-                 temperature: float = 0.1, max_tokens: int = 4000) -> Dict[str, Any]:
+                 temperature: float = 0.1, max_tokens: int = 1000) -> Dict[str, Any]:
     """
     Process raw text into a structured document using the LLM.
 
@@ -194,6 +198,7 @@ def process_text(text: str, template_type: str = "technical_specification",
     """
     llm = get_llm_instance()
     if llm is None:
+        logger.error("LLM not initialized. Unable to process text.")
         return {"success": False, "error": "LLM not initialized", "text": ""}
 
     start_time = time.time()
@@ -203,6 +208,9 @@ def process_text(text: str, template_type: str = "technical_specification",
         template = TEMPLATES.get(template_type, TEMPLATES["technical_specification"])
         system_prompt = template["system_prompt"]
         user_prompt = template["user_prompt_template"].format(text=text)
+
+        logger.info(f"Processing text with template type: {template_type}")
+        logger.info(f"Text length: {len(text)} characters")
 
         # Prepare the prompt in Llama-2 chat format
         messages = [
@@ -223,6 +231,7 @@ def process_text(text: str, template_type: str = "technical_specification",
 
         # Calculate processing time
         processing_time = time.time() - start_time
+        logger.info(f"Text processing completed in {processing_time:.2f} seconds")
 
         return {
             "success": True,
@@ -232,17 +241,18 @@ def process_text(text: str, template_type: str = "technical_specification",
         }
 
     except Exception as e:
+        processing_time = time.time() - start_time
         logger.error(f"Error processing text with LLM: {str(e)}")
         return {
             "success": False,
             "error": str(e),
             "text": "",
-            "processing_time": time.time() - start_time
+            "processing_time": processing_time
         }
 
 
 def process_text_async(text: str, template_type: str = "technical_specification",
-                       temperature: float = 0.1, max_tokens: int = 4000) -> str:
+                       temperature: float = 0.5, max_tokens: int = 1000) -> str:
     """
     Add a text processing job to the queue and return a job ID.
 
@@ -256,6 +266,7 @@ def process_text_async(text: str, template_type: str = "technical_specification"
         str: Job ID for tracking the processing job
     """
     job_id = f"job_{int(time.time())}_{hash(text) % 10000}"
+    logger.info(f"Creating async processing job: {job_id}")
 
     # Add job to queue
     _processing_queue.put({
@@ -276,6 +287,7 @@ def process_text_async(text: str, template_type: str = "technical_specification"
         _llm_processing_thread = threading.Thread(target=_process_queue)
         _llm_processing_thread.daemon = True
         _llm_processing_thread.start()
+        logger.info("Started LLM processing thread")
 
     return job_id
 
@@ -286,16 +298,19 @@ def _process_queue():
     """
     global _is_processing
 
+    logger.info("LLM processing thread started")
     while _is_processing:
         try:
             # Get job from queue (non-blocking)
             try:
                 job = _processing_queue.get(block=False)
+                logger.info(f"Processing job: {job['job_id']}")
             except queue.Empty:
                 # No jobs, sleep and check again
                 time.sleep(0.5)
                 # If queue has been empty for a while, exit the thread
                 if _processing_queue.empty():
+                    logger.info("Processing queue empty, stopping thread")
                     _is_processing = False
                 continue
 
@@ -315,7 +330,9 @@ def _process_queue():
             job["result"] = result
             job["completion_time"] = time.time()
 
-            # Store result in a results cache (you could add a proper caching mechanism here)
+            logger.info(f"Job {job['job_id']} {job['status']}")
+
+            # Store result in a results cache
             _store_job_result(job)
 
             # Mark queue task as done
@@ -335,8 +352,11 @@ def _store_job_result(job):
         os.makedirs(temp_dir, exist_ok=True)
 
         # Write job result to file
-        with open(os.path.join(temp_dir, f"{job['job_id']}.json"), 'w', encoding='utf-8') as f:
+        result_file = os.path.join(temp_dir, f"{job['job_id']}.json")
+        with open(result_file, 'w', encoding='utf-8') as f:
             json.dump(job, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"Stored job result to: {result_file}")
 
     except Exception as e:
         logger.error(f"Error storing job result: {str(e)}")
@@ -352,6 +372,8 @@ def get_job_status(job_id: str) -> Dict[str, Any]:
     Returns:
         dict: Dictionary containing job status and result if available
     """
+    logger.info(f"Checking status for job: {job_id}")
+
     # Check if job result file exists
     temp_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'temp', 'llm_results')
     result_file = os.path.join(temp_dir, f"{job_id}.json")
@@ -359,54 +381,26 @@ def get_job_status(job_id: str) -> Dict[str, Any]:
     if os.path.exists(result_file):
         try:
             with open(result_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                job_data = json.load(f)
+                logger.info(f"Found job result file with status: {job_data.get('status', 'unknown')}")
+                return job_data
         except Exception as e:
-            logger.error(f"Error reading job result: {str(e)}")
+            logger.error(f"Error reading job result file: {str(e)}")
             return {"status": "error", "error": str(e)}
 
     # Check if job is in queue
     for item in list(_processing_queue.queue):
         if item.get("job_id") == job_id:
-            return {
+            status_info = {
                 "status": item.get("status", "unknown"),
                 "job_id": job_id,
                 "timestamp": item.get("timestamp")
             }
+            logger.info(f"Job found in queue with status: {status_info['status']}")
+            return status_info
 
+    logger.warning(f"Job not found: {job_id}")
     return {"status": "not_found", "job_id": job_id}
-
-
-def download_model(model_name: str = "llama-2-7b-chat.Q4_K_M.gguf") -> bool:
-    """
-    Download a model if it doesn't exist.
-
-    Args:
-        model_name: Name of the model to download
-
-    Returns:
-        bool: True if download successful, False otherwise
-    """
-    # This is a placeholder. In a real implementation, you would download from HuggingFace or another source
-    model_path = os.path.join(MODEL_DIR, model_name)
-
-    if os.path.exists(model_path):
-        logger.info(f"Model already exists: {model_path}")
-        return True
-
-    try:
-        logger.info(f"Downloading model {model_name}...")
-
-        # In a real implementation, add code to download the model from a source
-        # For example, using huggingface_hub:
-        # from huggingface_hub import hf_hub_download
-        # hf_hub_download(repo_id="TheBloke/Llama-2-7B-Chat-GGUF", filename=model_name, local_dir=MODEL_DIR)
-
-        logger.info(f"Download not implemented. Please manually download the model to: {model_path}")
-        return False
-
-    except Exception as e:
-        logger.error(f"Error downloading model: {str(e)}")
-        return False
 
 
 def get_available_models() -> List[Dict[str, Any]]:
@@ -425,11 +419,24 @@ def get_available_models() -> List[Dict[str, Any]]:
         if file.endswith(".gguf"):
             file_path = os.path.join(MODEL_DIR, file)
             file_size = os.path.getsize(file_path) / (1024 * 1024)  # Size in MB
+
+            # Add description based on file name
+            description = "Default model for text structuring"
+            if "Q2" in file:
+                description = "2-bit quantized version, smallest size"
+            elif "Q4" in file:
+                description = "4-bit quantized version, good balance of size and quality"
+            elif "Q5" in file:
+                description = "5-bit quantized version, better quality, larger size"
+
             models.append({
                 "name": file,
                 "path": file_path,
-                "size_mb": round(file_size, 2)
+                "size_mb": round(file_size, 2),
+                "description": description
             })
+
+            logger.info(f"Found model: {file}, size: {round(file_size, 2)} MB")
 
     return models
 
